@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alberta Lottery Results</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  {% if paypal_client_id %}
+  <script src="https://www.paypal.com/sdk/js?client-id={{ paypal_client_id }}&currency=CAD&components=buttons&enable-funding=card&disable-funding=paylater,credit" defer></script>
+  {% endif %}
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="logo-area">
+        <span class="logo-icon">🎱</span>
+        <h1>Alberta Lottery Results</h1>
+      </div>
+      <p class="subtitle">Historic winning numbers sourced from PlayAlberta.ca · For informational purposes only</p>
+    </div>
+  </header>
+
+  <!-- Tab navigation -->
+  <nav class="tab-nav">
+    <div class="tab-nav-inner">
+      <button class="tab-btn active" data-tab="results" onclick="switchTab('results')">
+        📋 Results
+      </button>
+      <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard')">
+        📊 Dashboard
+      </button>
+      <button class="tab-btn" data-tab="predict" onclick="switchTab('predict')">
+        ✨ Suggestion
+      </button>
+    </div>
+  </nav>
+
+  <main>
+    <!-- ── Shared controls (Results + Dashboard only) ── -->
+    <section id="main-controls" class="controls card">
+      <div class="controls-row">
+        <div class="control-group">
+          <label for="game-select">Lottery Type</label>
+          <div class="select-wrapper">
+            <select id="game-select">
+              <option value="lotto-max">🏆 Lotto Max</option>
+              <option value="lotto-649">🎯 Lotto 649</option>
+            </select>
+          </div>
+        </div>
+        <div class="control-group">
+          <label for="start-date">Start Date</label>
+          <input type="date" id="start-date">
+        </div>
+        <div class="control-group">
+          <label for="end-date">End Date</label>
+          <input type="date" id="end-date">
+        </div>
+        <div class="control-group btn-group">
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" id="search-btn" onclick="runSearch()">
+            <span class="btn-icon">🔍</span> Search
+          </button>
+        </div>
+      </div>
+      <div class="quick-ranges">
+        <span class="quick-label">Quick select:</span>
+        <button class="chip" onclick="setRange(7)">Last 7 days</button>
+        <button class="chip" onclick="setRange(30)">Last 30 days</button>
+        <button class="chip" onclick="setRange(90)">Last 90 days</button>
+        <button class="chip" onclick="setRange(180)">Last 6 months</button>
+        <button class="chip" onclick="setRange(365)">Last year</button>
+      </div>
+    </section>
+
+    <!-- ── Loading / Error ── -->
+    <div id="loading" class="loading hidden">
+      <div class="spinner"></div>
+      <p>Fetching draw results...</p>
+    </div>
+    <div id="error-box" class="error-box hidden">
+      <span class="error-icon">⚠️</span>
+      <span id="error-msg"></span>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         RESULTS TAB
+    ════════════════════════════════════════ -->
+    <div id="tab-results" class="tab-content">
+      <section id="results-section" class="hidden">
+        <div class="results-header">
+          <div class="results-meta">
+            <h2 id="results-title"></h2>
+            <span id="results-count" class="badge"></span>
+          </div>
+          <button class="btn btn-download" id="download-btn" onclick="downloadExcel()">
+            <span class="btn-icon">⬇️</span> Download .xlsx
+          </button>
+        </div>
+        <div class="card table-card">
+          <div class="table-scroll">
+            <table id="results-table">
+              <thead id="table-head"></thead>
+              <tbody id="table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="empty-state" class="empty-state hidden">
+        <div class="empty-icon">📭</div>
+        <h3>No draws found</h3>
+        <p>No draw results found for the selected date range. Try widening your search.</p>
+      </section>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         DASHBOARD TAB
+    ════════════════════════════════════════ -->
+    <div id="tab-dashboard" class="tab-content hidden">
+
+      <!-- Summary KPI cards -->
+      <div id="kpi-row" class="kpi-row hidden">
+        <div class="kpi-card">
+          <div class="kpi-icon">🎯</div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="kpi-draws">—</div>
+            <div class="kpi-label">Total Draws</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon">🔥</div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="kpi-hottest">—</div>
+            <div class="kpi-label">Hottest Number</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon">🧊</div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="kpi-coldest">—</div>
+            <div class="kpi-label">Coldest Number</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon">⏳</div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="kpi-overdue">—</div>
+            <div class="kpi-label">Most Overdue</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main frequency chart -->
+      <div id="freq-section" class="hidden">
+        <div class="section-title">
+          <h3>📈 Number Frequency — Main Draw</h3>
+          <span class="section-sub" id="freq-subtitle"></span>
+        </div>
+        <div class="card chart-card">
+          <canvas id="freq-chart" height="90"></canvas>
+        </div>
+      </div>
+
+      <!-- Number heatmap grid -->
+      <div id="grid-section" class="hidden">
+        <div class="section-title">
+          <h3>🔢 Number Heatmap</h3>
+          <span class="section-sub">Color intensity = draw frequency. Orange = bonus appearances.</span>
+        </div>
+        <div class="card heatmap-card">
+          <div id="number-grid" class="number-grid"></div>
+          <div class="heatmap-legend">
+            <span class="legend-label">Cold</span>
+            <div class="legend-bar"></div>
+            <span class="legend-label">Hot</span>
+            <span class="legend-bonus-dot"></span>
+            <span class="legend-label">Bonus</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hot / Cold / Overdue -->
+      <div id="hco-row" class="hco-row hidden">
+        <div class="card hco-card">
+          <h4 class="hco-title hot-title">🔥 Top 10 Hottest</h4>
+          <div id="hot-list" class="hco-list"></div>
+        </div>
+        <div class="card hco-card">
+          <h4 class="hco-title cold-title">🧊 Top 10 Coldest</h4>
+          <div id="cold-list" class="hco-list"></div>
+        </div>
+        <div class="card hco-card">
+          <h4 class="hco-title overdue-title">⏳ Most Overdue</h4>
+          <div id="overdue-list" class="hco-list"></div>
+        </div>
+      </div>
+
+      <!-- Bottom row: Bonus chart + Day distribution + Decades -->
+      <div id="bottom-row" class="bottom-row hidden">
+        <div class="card chart-card-sm">
+          <h4 class="chart-subtitle">🎱 Bonus Number Frequency</h4>
+          <canvas id="bonus-chart" height="200"></canvas>
+        </div>
+        <div class="card chart-card-sm">
+          <h4 class="chart-subtitle">📅 Draws by Day of Week</h4>
+          <canvas id="dow-chart" height="200"></canvas>
+        </div>
+        <div class="card chart-card-sm">
+          <h4 class="chart-subtitle">📦 Numbers by Range</h4>
+          <canvas id="decade-chart" height="200"></canvas>
+        </div>
+      </div>
+
+      <section id="dash-empty" class="empty-state hidden">
+        <div class="empty-icon">📊</div>
+        <h3>No data yet</h3>
+        <p>Select a lottery type and date range, then click Search.</p>
+      </section>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         SUGGESTION TAB
+    ════════════════════════════════════════ -->
+    <div id="tab-predict" class="tab-content hidden">
+
+      <!-- Donate / unlock card -->
+      <div class="suggest-setup card">
+        <div class="suggest-setup-inner">
+
+          <!-- Game selector -->
+          <div class="suggest-game-col">
+            <label class="suggest-label" for="suggest-game-select">Lottery Type</label>
+            <div class="select-wrapper">
+              <select id="suggest-game-select" onchange="updateSuggestTheme()">
+                <option value="lotto-max">🏆 Lotto Max</option>
+                <option value="lotto-649">🎯 Lotto 649</option>
+              </select>
+            </div>
+            <p class="suggest-hint">
+              Analyzes the last 365 days of draws.<br>
+              Numbers from the <em>previous 2 draws are excluded</em>.<br>
+              Three sets are generated on each donation — they vary every time.
+            </p>
+          </div>
+
+          <div class="suggest-divider"></div>
+
+          <!-- Donate area -->
+          <div class="donate-col">
+            <div class="donate-header">
+              <span class="donate-lock-icon">🔒</span>
+              <div>
+                <strong class="donate-title">Support &amp; unlock your suggestions</strong>
+                <p class="donate-sub">A small donation reveals 3 unique number sets. Donate again for a fresh draw.</p>
+              </div>
+            </div>
+            <div id="paypal-button-container" class="paypal-btn-wrap"></div>
+            {% if not paypal_client_id %}
+            <div class="paypal-unconfigured">
+              ⚙️ PayPal is not configured yet.<br>
+              Set the <code>PAYPAL_CLIENT_ID</code> environment variable and restart the app.
+            </div>
+            {% endif %}
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Info bar (revealed after donation) -->
+      <div id="suggest-info-bar" class="predict-info-bar hidden">
+        <span class="predict-info-icon">✨</span>
+        <div>
+          <strong>Suggestion Engine</strong> — Based on the last 365 days of draws.
+          Numbers from the <em>previous 2 draws are excluded</em> to avoid repeats.
+          Three sets from different tiers of the hottest numbers.
+        </div>
+      </div>
+
+      <!-- Prediction cards -->
+      <div id="predict-cards" class="predict-cards hidden"></div>
+
+      <!-- Excluded numbers explanation -->
+      <div id="predict-excluded-section" class="card predict-excluded-card hidden">
+        <h4 class="excl-title">🚫 Excluded — Appeared in Last 2 Draws</h4>
+        <div id="predict-excluded-draws"></div>
+      </div>
+
+      <!-- Frequency reference table -->
+      <div id="predict-freq-section" class="hidden">
+        <div class="section-title">
+          <h3>📊 Frequency Reference — Top Numbers Used</h3>
+          <span class="section-sub" id="predict-freq-sub"></span>
+        </div>
+        <div class="card predict-freq-card">
+          <div id="predict-freq-bars" class="predict-freq-bars"></div>
+        </div>
+      </div>
+
+      <!-- Disclaimer -->
+      <div class="predict-disclaimer hidden" id="predict-disclaimer">
+        <p>⚠️ <strong>No guarantee of winning.</strong> These suggestions are based purely on historical frequency
+        analysis and statistical patterns. Lottery draws are independent random events — past results have
+        no influence on future outcomes. Playing the lottery involves risk; please play responsibly.</p>
+      </div>
+
+    </div>
+
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <p class="footer-disclaimer">
+        ⚠️ <strong>This site is not affiliated with, endorsed by, or associated with
+        <a href="https://playalberta.ca" target="_blank" rel="noopener">PlayAlberta.ca</a>,
+        the Alberta Gaming, Liquor &amp; Cannabis Commission (AGLC), or any Alberta lottery entity.</strong>
+        All lottery data is sourced publicly from PlayAlberta.ca for informational purposes only.
+      </p>
+      <p class="footer-disclaimer">
+        Number suggestions are derived from statistical frequency analysis of historical draw data.
+        They do not constitute lottery advice, and no winning outcome is guaranteed.
+        Lottery participation involves financial risk — please play responsibly.
+      </p>
+      <p class="footer-copy">© Alberta Lottery Results · Independent fan site · Not an official lottery service</p>
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
