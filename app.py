@@ -297,16 +297,6 @@ def get_prediction():
     if total < 3:
         return jsonify({"error": "Not enough draws in the past year to generate a prediction."}), 400
 
-    # Last 2 draws — numbers to exclude
-    last2 = draws[:2]
-    excluded_main = set()
-    excluded_bonus = set()
-    for d in last2:
-        for n in d["main_numbers"]:
-            excluded_main.add(n)
-        if d["bonus"]:
-            excluded_bonus.add(d["bonus"])
-
     # Frequency over full year
     main_freq = {str(n): 0 for n in range(1, max_number + 1)}
     bonus_freq = {}
@@ -317,11 +307,8 @@ def get_prediction():
         if b:
             bonus_freq[b] = bonus_freq.get(b, 0) + 1
 
-    # Rank available numbers (exclude last-2 numbers), tiebreak by number ascending
-    available = [
-        (n, cnt) for n, cnt in main_freq.items()
-        if n not in excluded_main
-    ]
+    # Rank all numbers by frequency, tiebreak by number ascending
+    available = list(main_freq.items())
     available.sort(key=lambda x: (-x[1], int(x[0])))
 
     # Weighted sample without replacement — hotter numbers more likely but not guaranteed
@@ -342,17 +329,31 @@ def get_prediction():
                     break
         return sorted(result, key=int)
 
-    # Each tier draws from a 2× pool so different runs yield different picks
-    pool_size = nums_per_draw * 2
-    sets = []
-    labels = ["Hottest Available", "Second Tier", "Third Tier"]
     bonus_ranked = sorted(
-        [(n, c) for n, c in bonus_freq.items() if n not in excluded_bonus],
+        bonus_freq.items(),
         key=lambda x: (-x[1], int(x[0]))
     )
     bonus_pool = bonus_ranked[:max(5, len(bonus_ranked))]
+    sets = []
 
-    for i in range(3):
+    # ── Set 1: Today's Pick — fully random ──────────────────────────────
+    random_nums = sorted(random.sample(range(1, max_number + 1), nums_per_draw), key=int)
+    random_nums_str = [str(n) for n in random_nums]
+    random_bonus = str(random.choice([n for n in range(1, max_number + 1)
+                                       if str(n) not in random_nums_str]))
+    sets.append({
+        "label": "Today's Pick",
+        "numbers": random_nums_str,
+        "bonus": random_bonus,
+        "details": [{"number": n, "count": main_freq.get(n, 0),
+                     "pct": round(main_freq.get(n, 0) / total * 100, 1)}
+                    for n in random_nums_str],
+    })
+
+    # ── Sets 2 & 3: Hottest Available + Second Tier ──────────────────────
+    pool_size = nums_per_draw * 2
+    labels = ["Hottest Available", "Second Tier"]
+    for i in range(2):
         tier_start = i * pool_size
         tier_candidates = available[tier_start:tier_start + pool_size]
         if len(tier_candidates) < nums_per_draw:
@@ -360,7 +361,6 @@ def get_prediction():
 
         nums = weighted_sample(tier_candidates, nums_per_draw)
 
-        # Pick bonus from top-5 pool, weighted, excluding already-picked bonuses
         already_bonus = {s["bonus"] for s in sets}
         bonus_candidates = [(n, c) for n, c in bonus_pool if n not in already_bonus]
         bonus_pick = weighted_sample(bonus_candidates, 1)[0] if bonus_candidates else ""
@@ -381,9 +381,6 @@ def get_prediction():
         "total_draws": total,
         "start_date": str(start_date),
         "end_date": str(end_date),
-        "last2_draws": last2[:2],
-        "excluded_main": sorted(list(excluded_main), key=int),
-        "excluded_bonus": sorted(list(excluded_bonus), key=int),
         "sets": sets,
     })
 

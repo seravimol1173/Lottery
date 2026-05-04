@@ -499,11 +499,11 @@ async function loadPredict() {
 }
 
 function renderPredict(data) {
-  const setEmojis = ['🥇', '🥈', '🥉'];
+  const setEmojis = ['🎲', '🔥', '📊'];
   const setStrategies = [
-    'Top hottest numbers not in last 2 draws',
-    'Second tier hottest numbers',
-    'Third tier hottest numbers',
+    'Lucky numbers just for you',
+    'Top hottest numbers over the last 365 days',
+    'Second tier hottest numbers over the last 365 days',
   ];
 
   // ── Info bar ──
@@ -543,24 +543,6 @@ function renderPredict(data) {
   }).join('');
   cardsEl.classList.remove('hidden');
 
-  // ── Last 2 draws / excluded ──
-  const exclDraws = document.getElementById('predict-excluded-draws');
-  exclDraws.innerHTML = data.last2_draws.map((draw, i) => {
-    const nums = draw.main_numbers.map(n => {
-      const hit = data.excluded_main.includes(n);
-      return `<span class="excl-ball ${hit ? 'excl-ball-hit' : ''}" title="${hit ? 'Excluded' : ''}">${n}</span>`;
-    }).join('');
-    const bonus = draw.bonus
-      ? `<span class="excl-sep">+</span><span class="excl-ball ${data.excluded_bonus.includes(draw.bonus) ? 'excl-bonus excl-ball-hit' : 'excl-bonus'}">${draw.bonus}</span>`
-      : '';
-    return `
-      <div class="excl-draw">
-        <div class="excl-draw-meta">Draw ${i + 1} — <strong>${draw.date}</strong> (${draw.day})</div>
-        <div class="excl-balls-row">${nums}${bonus}</div>
-      </div>`;
-  }).join('');
-  document.getElementById('predict-excluded-section').classList.remove('hidden');
-
   // ── Frequency reference bars ──
   document.getElementById('predict-freq-sub').textContent =
     `${data.total_draws} draws · ${data.start_date} → ${data.end_date}`;
@@ -577,17 +559,16 @@ function renderPredict(data) {
   const freqBars = document.getElementById('predict-freq-bars');
   freqBars.innerHTML = dedupedDetails.map(item => {
     const widthPct = (item.count / maxCount * 100).toFixed(1);
-    const isExcl = data.excluded_main.includes(item.number);
     const tags = data.sets.map((s, i) => {
       const letter = String.fromCharCode(65 + i);
       return s.numbers.includes(item.number)
         ? `<span class="freq-tag tag-${letter.toLowerCase()}">${letter}</span>` : '';
     }).join('');
     return `
-      <div class="freq-row ${isExcl ? 'freq-row-excl' : ''}">
+      <div class="freq-row">
         <span class="freq-num">${item.number}</span>
         <div class="freq-track">
-          <div class="freq-fill ${isExcl ? 'fill-excl' : ''}" style="width:${widthPct}%"></div>
+          <div class="freq-fill" style="width:${widthPct}%"></div>
         </div>
         <span class="freq-count">${item.count}×</span>
         <span class="freq-pct">${item.pct}%</span>
@@ -617,8 +598,8 @@ function hideDash() {
 }
 
 function hidePredict() {
-  ['suggest-info-bar', 'predict-cards', 'predict-excluded-section',
-   'predict-freq-section', 'predict-disclaimer', 'error-box']
+  ['suggest-info-bar', 'predict-cards', 'predict-freq-section',
+   'predict-disclaimer', 'error-box']
     .forEach(id => document.getElementById(id)?.classList.add('hidden'));
 }
 

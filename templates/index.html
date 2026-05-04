@@ -30,8 +30,8 @@
       <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard')">
         📊 Dashboard
       </button>
-      <button class="tab-btn" data-tab="predict" onclick="switchTab('predict')">
-        ✨ Suggestion
+      <button class="tab-btn tab-btn-lucky" data-tab="predict" onclick="switchTab('predict')">
+        🍀 My Lucky Numbers
       </button>
     </div>
   </nav>
@@ -240,7 +240,6 @@
             </div>
             <p class="suggest-hint">
               Analyzes the last 365 days of draws.<br>
-              Numbers from the <em>previous 2 draws are excluded</em>.<br>
               Three sets are generated on each donation — they vary every time.
             </p>
           </div>
@@ -252,9 +251,14 @@
             <div class="donate-header">
               <span class="donate-lock-icon">🔒</span>
               <div>
-                <strong class="donate-title">Support &amp; unlock your suggestions</strong>
-                <p class="donate-sub">A small donation reveals 3 unique number sets. Donate again for a fresh draw.</p>
+                <strong class="donate-title">Unlock your lucky numbers</strong>
+                <p class="donate-sub">Support this project and instantly reveal 3 unique number sets based on the last 365 days of real draw data. Donate again for a fresh pick every time.</p>
               </div>
+            </div>
+            <div class="donate-amount-badge">
+              <span class="donate-amount-label">One-time donation</span>
+              <span class="donate-amount-value">$2.00 <span class="donate-amount-currency">CAD</span></span>
+              <span class="donate-amount-note">Instant unlock · No account required</span>
             </div>
             <div id="paypal-button-container" class="paypal-btn-wrap"></div>
             {% if not paypal_client_id %}
@@ -272,20 +276,13 @@
       <div id="suggest-info-bar" class="predict-info-bar hidden">
         <span class="predict-info-icon">✨</span>
         <div>
-          <strong>Suggestion Engine</strong> — Based on the last 365 days of draws.
-          Numbers from the <em>previous 2 draws are excluded</em> to avoid repeats.
-          Three sets from different tiers of the hottest numbers.
+          <strong>Your Lucky Numbers</strong> — Based on the last 365 days of draws.
+          Three sets generated from different tiers of the hottest numbers.
         </div>
       </div>
 
       <!-- Prediction cards -->
       <div id="predict-cards" class="predict-cards hidden"></div>
-
-      <!-- Excluded numbers explanation -->
-      <div id="predict-excluded-section" class="card predict-excluded-card hidden">
-        <h4 class="excl-title">🚫 Excluded — Appeared in Last 2 Draws</h4>
-        <div id="predict-excluded-draws"></div>
-      </div>
 
       <!-- Frequency reference table -->
       <div id="predict-freq-section" class="hidden">
