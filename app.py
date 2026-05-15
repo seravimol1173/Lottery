@@ -336,43 +336,51 @@ def get_prediction():
     bonus_pool = bonus_ranked[:max(5, len(bonus_ranked))]
     sets = []
 
-    # ── Set 1: Today's Pick — fully random ──────────────────────────────
-    random_nums = sorted(random.sample(range(1, max_number + 1), nums_per_draw), key=int)
-    random_nums_str = [str(n) for n in random_nums]
-    random_bonus = str(random.choice([n for n in range(1, max_number + 1)
-                                       if str(n) not in random_nums_str]))
+    # Top 20 hottest numbers pool (shared by Today's Pick and Hottest Available)
+    top20 = available[:20]
+
+    # ── Set 1: Today's Pick — uniform random from top 20 ────────────────
+    todays_nums = sorted(random.sample([n for n, _ in top20], nums_per_draw), key=int)
+    already_bonus = set()
+    bonus_candidates = [(n, c) for n, c in bonus_pool if n not in already_bonus]
+    todays_bonus = weighted_sample(bonus_candidates, 1)[0] if bonus_candidates else ""
     sets.append({
         "label": "Today's Pick",
-        "numbers": random_nums_str,
-        "bonus": random_bonus,
+        "numbers": todays_nums,
+        "bonus": todays_bonus,
         "details": [{"number": n, "count": main_freq.get(n, 0),
                      "pct": round(main_freq.get(n, 0) / total * 100, 1)}
-                    for n in random_nums_str],
+                    for n in todays_nums],
     })
 
-    # ── Sets 2 & 3: Hottest Available + Second Tier ──────────────────────
-    pool_size = nums_per_draw * 2
-    labels = ["Hottest Available", "Second Tier"]
-    for i in range(2):
-        tier_start = i * pool_size
-        tier_candidates = available[tier_start:tier_start + pool_size]
-        if len(tier_candidates) < nums_per_draw:
-            break
+    # ── Set 2: Hottest Available — weighted random from top 20 ───────────
+    hot_nums = weighted_sample(top20, nums_per_draw)
+    already_bonus = {s["bonus"] for s in sets}
+    bonus_candidates = [(n, c) for n, c in bonus_pool if n not in already_bonus]
+    hot_bonus = weighted_sample(bonus_candidates, 1)[0] if bonus_candidates else ""
+    sets.append({
+        "label": "Hottest Available",
+        "numbers": hot_nums,
+        "bonus": hot_bonus,
+        "details": [{"number": n, "count": main_freq.get(n, 0),
+                     "pct": round(main_freq.get(n, 0) / total * 100, 1)}
+                    for n in hot_nums],
+    })
 
-        nums = weighted_sample(tier_candidates, nums_per_draw)
-
+    # ── Set 3: Second Tier — weighted random from next 20 ────────────────
+    second_tier = available[20:40]
+    if len(second_tier) >= nums_per_draw:
+        tier_nums = weighted_sample(second_tier, nums_per_draw)
         already_bonus = {s["bonus"] for s in sets}
         bonus_candidates = [(n, c) for n, c in bonus_pool if n not in already_bonus]
-        bonus_pick = weighted_sample(bonus_candidates, 1)[0] if bonus_candidates else ""
-
-        num_details = [{"number": n, "count": main_freq.get(n, 0),
-                        "pct": round(main_freq.get(n, 0) / total * 100, 1)} for n in nums]
-
+        tier_bonus = weighted_sample(bonus_candidates, 1)[0] if bonus_candidates else ""
         sets.append({
-            "label": labels[i],
-            "numbers": nums,
-            "bonus": bonus_pick,
-            "details": num_details,
+            "label": "Second Tier",
+            "numbers": tier_nums,
+            "bonus": tier_bonus,
+            "details": [{"number": n, "count": main_freq.get(n, 0),
+                         "pct": round(main_freq.get(n, 0) / total * 100, 1)}
+                        for n in tier_nums],
         })
 
     return jsonify({
